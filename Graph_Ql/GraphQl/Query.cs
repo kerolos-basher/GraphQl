@@ -11,9 +11,11 @@ namespace Graph_Ql.GraphQl
 {
     public class Query
     {
-        public async Task<List<Employee>> AllEmployeeOnly([Service] EmployeeRepository employeeRepository) =>
-          await employeeRepository.GetEmployees();
+        public List<Employee> AllEmployeeOnly([Service] EmployeeRepository employeeRepository) =>
+           employeeRepository.GetEmployees();
 
+        public EmpWithProductDto GetEmployeWithProducts([Service] EmployeeRepository employeeRepository) =>
+       employeeRepository.GetEmployeesWithProducts();
         public List<Employee> AllEmployeeWithDepartment([Service] EmployeeRepository employeeRepository) =>
             employeeRepository.GetEmployeesWithDepartment();
 

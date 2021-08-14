@@ -7,6 +7,8 @@ using System.Collections.Generic;
 using System.Data.SqlClient;
 using System.Linq;
 using System.Threading.Tasks;
+using Dapper.Contrib.Extensions;
+using System.Dynamic;
 
 namespace Graph_Ql.Repository
 {
@@ -19,16 +21,32 @@ namespace Graph_Ql.Repository
             _sampleAppDbContext = sampleAppDbContext;
         }
 
-        public async Task<List<Employee>> GetEmployees()
+        public List<Employee> GetEmployees()
         {
-            IEnumerable<Employee> Emplist;
+            List<Employee> Emplist;
             using (SqlConnection connection = new SqlConnection(connecinstring))
             {
-                await connection.OpenAsync();
-                var sqlqury = "Select * from Employee";
-                Emplist = await connection.QueryAsync<Employee>(sqlqury);
+                //connection.Open();
+                Emplist = connection.GetAll<Employee>().ToList();
             }
-            return Emplist.ToList();
+            return Emplist;
+        }
+        public EmpWithProductDto GetEmployeesWithProducts()
+        {
+            dynamic obj = new ExpandoObject();
+            using (SqlConnection connection = new SqlConnection(connecinstring))
+            {
+                // connection.Open();
+                var qury = @"Select * From Employee;
+                            Select * From products";
+                using (var mul = connection.QueryMultiple(qury, null))
+                {
+                    obj.Employee = mul.Read<Employee>().ToList();
+                    obj.products = mul.Read<Products>().ToList();
+                }
+
+            }
+            return new EmpWithProductDto();
         }
 
         public async Task<Employee> GetEmployeeById(int id)
@@ -78,5 +96,27 @@ namespace Graph_Ql.Repository
             await _sampleAppDbContext.SaveChangesAsync();
             return true;
         }
+    }
+    public class EmpWithProductDto
+    {
+        public int ID { get; set; }
+        public string Name { get; set; }
+        public string Type { get; set; }
+        public string Description { get; set; }
+        public int Stock { get; set; }
+        public int Rating { get; set; }
+        public DateTimeOffset IntroducedAt { get; set; }
+        public string PhotoFileName { get; set; }
+
+        public double Price { get; set; }
+        public int EmployeeId { get; set; }
+
+        public string EmployeeName { get; set; }
+
+        public string Email { get; set; }
+
+        public int Age { get; set; }
+
+        public int DepartmentId { get; set; }
     }
 }

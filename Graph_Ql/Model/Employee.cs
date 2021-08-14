@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Dapper.Contrib.Extensions;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -9,12 +10,11 @@ namespace Graph_Ql.Model
 {
     public class Employee
     {
-        [Key]
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        [ExplicitKey]
         public int EmployeeId { get; set; }
 
         [Required]
-        public string Name { get; set; }
+        public string EmployeeName { get; set; }
 
         [Required]
         [EmailAddress]
@@ -25,6 +25,8 @@ namespace Graph_Ql.Model
         public int Age { get; set; }
 
         public int DepartmentId { get; set; }
+
         public Department Department { get; set; }
+        public string Name { get; internal set; }
     }
 }
