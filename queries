@@ -1,0 +1,679 @@
+using EF.DbTables.Core;
+using EF.DbTables.Event;
+using EF.Models;
+using HotChocolate;
+using HotChocolate.Data;
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
+using Dapper;
+using System.Collections.Generic;
+
+namespace GQLServer.Queries
+{
+    public partial class Query
+    {
+
+        //    [DiagnosticName("HotChocolate.Execution.Query.Error")]
+        //    public virtual void OnQueryError(
+        //IQueryContext context,
+        //Exception exception)
+        //    {
+        //        // ... your code
+        //    }
+        //[UsePaging]
+        [UseFiltering]
+
+        public IQueryable<Company> GetCompanies([Service] CoreContext cc)
+        {
+            return from cmp in cc.CtCompany
+                   join contact in cc.CtContact on cmp.CompanyId equals contact.ContactId
+                   join cd in cc.VCompanyDetails on cmp.CompanyId equals cd.CompanyId
+                   join comm in cc.VwCompanyWithCommInfo on cmp.CompanyId equals comm.CompanyId
+                   select new Company
+                   {
+                       CompanyId = cmp.CompanyId,
+                       CompanyName = cmp.CompanyName,
+                       CompanyPersons = cc.CtPerson.Where(x => x.CompanyId == cmp.CompanyId).ToList(),
+                       Publish = new CommInfo
+                       {
+                           Address1 = cd.PublishAddress1,
+                           Address2 = cd.BillingAddress2,
+                           CountryId = comm.ACountryId,
+                           StateId = comm.AStateId,
+                           State = cc.CtState.Where(x => x.StateId == comm.AStateId).Select(x => x.ShortCode).FirstOrDefault(),
+                           Country = cd.PublishCountry,
+                           City = cd.PublishCity,
+                           PhoneArea = cd.PublishPhoneArea,
+                           PhoneCountryId = comm.PCountryId,
+                           PhoneCountry = cd.PublishPhoneCountry,
+                           PhoneNumber = cd.PublishPhoneNumber,
+                           PhoneCountryCode = cd.PublishPhoneCountryCode,
+                           PhoneExtension = cd.PublishPhoneExtension,
+                           TollFreeArea = cd.PublishTollFreeArea,
+                           TollFreeCountryId = comm.TCountryId,
+                           TollFreeCountry = cd.PublishTollFreeCountry,
+                           TollFreeNumber = cd.PublishTollFreeNumber,
+                           TollFreeCountryCode = cd.PublishPhoneCountryCode,
+                           FaxArea = comm.FAreaCode,
+                           FaxCountryId = comm.FCountryId,
+                           //FaxCountry = comm.f,
+                           FaxNumber = comm.FNumber,
+                           FaxExtension = comm.FExtension,
+                           Zip = cd.PublishZip,
+                           Website = cd.PublishWebsite
+
+                       }
+                       //StateId = comm.AStateId,
+                       //CountryId= comm.ACountryId,
+                       //City = comm.ACity,
+                       //Email = comm.EEmail,
+                       //AreaCode = comm.PAreaCode,
+                       //TollFree = comm.TCountryId + 
+
+
+                   };
+        }
+
+
+        [UseFiltering]
+
+        public IQueryable<Person> GetPersons([Service] CoreContext cc)
+        {
+            return from person in cc.CtPerson
+
+                   join contact in cc.CtContact on person.PersonId equals contact.ContactId
+                   join comm in cc.VwPersonWithCommInfo on person.PersonId equals comm.PersonId
+                   join comp in cc.CtCompany on person.CompanyId equals comp.CompanyId
+                   join pd in cc.VPersonDetails on person.PersonId equals pd.PersonId
+                   select new Person
+                   {
+                       CompanyId = person.CompanyId,
+                       PersonId = person.PersonId,
+                       LoginId = comm.LoginId,
+                       MiddleName = person.MiddleName,
+                       FirstName = person.FirstName,
+                       LastName = person.LastName,
+                       Dob = person.Dob,
+                       Title = person.Title,
+                       Child = new Person
+                       {
+                           ChildId = person.ChildId,
+                           FirstName = person.Child.FirstName,
+                           MiddleName = person.Child.MiddleName,
+                           LastName = person.Child.LastName
+                       },
+                       GeographicRegionId = person.GeographicRegionId,
+
+                       Company = new Company
+                       {
+                           CompanyName = comp.CompanyName,
+                           CompanyId = comp.CompanyId,
+                           GeographicRegionId = comp.GeographicRegionId,
+                           CompanyNumber = comp.CompanyNumber
+                       },
+                       Flags = contact.CtContactHasFlag.Select(_ => _.Flag),
+                       //City = comm.ACity,
+                       //CountryId = comm.ACountryId,
+                       //StateId=comm.AStateId,
+                       //AreaCode=comm.PAreaCode,
+                       //Email = comm.EEmail,
+                       //LoginId = comm.LoginId,
+                       Designation = comm.Designation,
+                       Salutation = comm.Salutation,
+                       Suffix = comm.Suffix,
+                       Gender = person.Gender,
+                       Publish = new CommInfo
+                       {
+                           Address1 = pd.PublishAddress1,
+                           Address2 = pd.BillingAddress2,
+                           CountryId = comm.ACountryId,
+                           StateId = comm.AStateId,
+                           State = cc.CtState.Where(x => x.StateId == comm.AStateId).Select(x => x.ShortCode).FirstOrDefault(),
+                           Country = pd.PublishCountry,
+                           City = pd.PublishCity,
+
+                           PhoneArea = pd.PublishPhoneArea,
+                           PhoneCountryId = comm.PCountryId,
+                           PhoneCountry = pd.PublishPhoneCountry,
+                           PhoneNumber = pd.PublishPhoneNumber,
+                           PhoneCountryCode = pd.PublishPhoneCountryCode,
+                           PhoneExtension = pd.PublishPhoneExtension,
+                           TollFreeArea = pd.PublishTollFreeArea,
+                           TollFreeCountryId = comm.TCountryId,
+                           TollFreeCountry = pd.PublishTollFreeCountry,
+                           TollFreeNumber = pd.PublishTollFreeNumber,
+                           TollFreeCountryCode = pd.PublishPhoneCountryCode,
+                           FaxArea = comm.FAreaCode,
+                           FaxCountryId = comm.FCountryId,
+                           //FaxCountry = comm.f,
+                           FaxNumber = comm.FNumber,
+                           FaxExtension = comm.FExtension,
+                           Zip = pd.PublishZip,
+                           Website = pd.PublishWebsite
+
+
+
+
+                       }
+
+
+
+                   };
+        }
+
+        [UseFiltering]
+        //[UseProjection]
+        public IQueryable<PersonRegistration> GetPerReg([Service] EventContext ec)
+        {
+            // var query =
+            return from per in ec.RegPersonRegistration
+                   join us in ec.VwCoreSmUser on per.SmCreateUserId equals us.UserId
+                   join eus in ec.VwCoreSmUser on per.SmEditUserId equals eus.UserId
+
+                   join regReson in ec.RegPersonHasStatusReason on per.PersonRegistrationId equals regReson.PersonRegistrationId
+                   join htl in
+                     (from htlOccupant in ec.HtlOccupant
+
+                      select htlOccupant
+
+                      ).Distinct()
+                      on per.PersonRegistrationId equals htl.RegPersonRegistrationId into h
+                   from htlOccupant in h.DefaultIfEmpty()
+                   join hotelStay in ec.HtlHotelStay on new
+                   {
+                       HotelStayID = (int)htlOccupant.HotelStayId
+                   } equals new
+                   {
+                       HotelStayID = hotelStay.HotelStayId
+                   } into hstay
+                   from hotelStay in hstay.DefaultIfEmpty()
+                   join HRv in
+                       (from htlHotelReservation in ec.HtlHotelReservation
+
+                        select htlHotelReservation
+                        ).Distinct() on new
+                        {
+                            HotelStayID = hotelStay.HotelStayId
+                        } equals new
+                        {
+                            HotelStayID = HRv.HotelStayId
+                        } into hr
+                   from holetlReserv in hr.DefaultIfEmpty()
+                   join HRm in ec.HtlHotelRoom on new
+                   {
+                       HotelRoomID = (int)holetlReserv.HotelRoomId
+                   } equals new
+                   {
+                       HotelRoomID = HRm.HotelRoomId
+                   } into hrom
+                   from hotelRoom in hrom.DefaultIfEmpty()
+                   join HOX in ec.HtlOccupant
+                         on new
+                         {
+                             HotelStayID = (int)htlOccupant.HotelStayId,
+                             regPersonRegistrationID = htlOccupant.RegPersonRegistrationId
+                         }
+                     equals new
+                     {
+                         HotelStayID = (int)HOX.HotelStayId,
+                         regPersonRegistrationID = HOX.RegPersonRegistrationId
+                     } into hocp
+                   from hotelOccup in hocp.DefaultIfEmpty()
+
+
+                   select new PersonRegistration
+                   {
+
+                       Hotel = hotelRoom.Hotel.Name,
+                       HotelConf = hotelStay.ConfirmationNumber,
+                       RegistrationId = per.PersonRegistrationId,
+                       PersonId = per.CtPersonId,
+                       AttendanceStatusId = per.AttendanceStatusId,
+
+                       RegistrationStatusId = per.RegistrationStatusId
+                              ,
+                       IsPrimary = per.IsPrimary
+                              ,
+                       CheckInDate = per.CheckInDate
+                              ,
+                       ArrAirline = per.ArrivalAirline
+                              ,
+                       DepAirline = per.DepartureAirline
+                              ,
+                       ArrFlightNumber = per.ArrivalFlightNumber
+                              ,
+                       DepFlightNumber = per.DepartureAirline,
+
+                       EventRoles = per.RegPersonHasEventRole.Select(_ => _.PersonEventRole),
+                       //,
+                       Reason = per.RegPersonHasStatusReason.Select(_ => _.StatusReason),
+                       Comment = per.Comment,
+                       CmpRegId = per.CompanyRegistrationId,
+                       CancellationDate = per.CancellationDate,
+                       CreatedBy = us.DisplayName,
+                       LastEditedBy = eus.DisplayName,
+                       DetailItemId = per.AcDetailItemId,
+                       RegistrationType = per.RegistrationType,
+                       RegistrationDate = per.RegistrationDate,
+
+
+                   };
+
+        }
+
+        public IQueryable<PerRegHotel> GetPerRegHotel([Service] EventContext ec)
+        {
+            return from per in ec.RegPersonRegistration
+                   join htl in
+                     (from htlOccupant in ec.HtlOccupant
+                      group htlOccupant by htlOccupant.RegPersonRegistrationId into g
+                      select new
+                      {
+
+                          PRID = g.Key,
+                          HotelStayID = (int?)g.Min(_ => _.HotelStayId)
+                      }) on per.PersonRegistrationId equals htl.PRID into h
+                   from htlOccupant in h.DefaultIfEmpty()
+                   join hotelStay in ec.HtlHotelStay on new
+                   {
+                       HotelStayID = (int)htlOccupant.HotelStayID
+                   } equals new
+                   {
+                       HotelStayID = hotelStay.HotelStayId
+                   } into hstay
+                   from hotelStay in hstay.DefaultIfEmpty()
+                   join HRv in
+                       (from htlHotelReservation in ec.HtlHotelReservation
+                        group htlHotelReservation by
+                            htlHotelReservation.HotelStayId
+                         into g
+                        select new
+                        {
+                            HotelStayId = g.Key,
+                            HotelRoomID = (int?)g.Min(p => p.HotelRoomId)
+                        }) on new
+                        {
+                            HotelStayID = hotelStay.HotelStayId
+                        } equals new
+                        {
+                            HotelStayID = HRv.HotelStayId
+                        } into hr
+                   from holetlReserv in hr.DefaultIfEmpty()
+                   join HRm in ec.HtlHotelRoom on new
+                   {
+                       HotelRoomID = (int)holetlReserv.HotelRoomID
+                   } equals new
+                   {
+                       HotelRoomID = HRm.HotelRoomId
+                   } into hrom
+                   from hotelRoom in hrom.DefaultIfEmpty()
+                   join HOX in ec.HtlOccupant
+                         on new
+                         {
+                             HotelStayID = (int)htlOccupant.HotelStayID,
+                             regPersonRegistrationID = htlOccupant.PRID
+                         }
+                     equals new
+                     {
+                         HotelStayID = (int)HOX.HotelStayId,
+                         regPersonRegistrationID = HOX.RegPersonRegistrationId
+                     } into hocp
+                   from hotelOccup in hocp.DefaultIfEmpty()
+                   select new PerRegHotel
+                   {
+                       PerRegId = per.PersonRegistrationId,
+                       Hotel = hotelRoom.Hotel.Name,
+                       HotelConf = hotelStay.ConfirmationNumber
+
+                   };
+        }
+
+
+        [UseFiltering]
+        [UseProjection]
+        public IQueryable<CompanyRegistration> GetCmpReg([Service] EventContext ec)
+        {
+            return from cmp in ec.RegCompanyRegistration
+                   join us in ec.VwCoreSmUser on cmp.SmCreateUserId equals us.UserId
+                   join eus in ec.VwCoreSmUser on cmp.SmEditUserId equals eus.UserId
+
+
+                   select new CompanyRegistration
+                   {
+                       RegistrationId = cmp.CompanyRegistrationId
+                       ,
+                       CompanyId = cmp.CtCompanyId
+                       ,
+                       PreparerName = cmp.PreparerName
+                       ,
+                       EventRoles = cmp.RegCompanyHasEventRole.Select(_ => _.CompanyEventRole)
+                       ,
+                       GenericFlag = cmp.RegCmpRegHasFlag.Select(x => x.Flag)
+                       ,
+                       StatusReasons = cmp.RegCompanyHasStatusReason.Select(_ => _.StatusReason)
+                       ,
+                       AttendanceStatusId = cmp.AttendanceStatusId
+                       ,
+                       PrimaryPersonId = cmp.CtPrimaryPersonId
+                       ,
+                       Comment = cmp.Comment
+                       ,
+                       CreatedBy = us.UserName
+                       ,
+                       LastEditedBy = eus.UserName,
+                       RegistrationStatus = cmp.RegistrationStatus.Description
+                       ,
+                       RegistrationType = cmp.RegistrationType.Description
+
+                   };
+        }
+        [UseFiltering]
+        [UseProjection]
+        public IQueryable<RegRegistrationType> GetRegistrationTypes([Service] EventContext ec)
+        {
+            return from RegType in ec.RegRegistrationType
+                   select new RegRegistrationType
+                   {
+                       RegistrationTypeId = RegType.RegistrationTypeId,
+                       Description = RegType.Description
+                   };
+        }
+        [UseFiltering]
+        public IQueryable<BlockSlot> GetBlockSlot([Service] EventContext ec, int personId, int minutes, int langId)
+        {
+            var sur = from S in ec.SchSlot
+                      join BLOCKED in (
+                          (from PRHS in ec.SchPersonRegistrationHasSchedule
+                           from BSC in ec.SchBlockSlotComment
+                           where
+                               PRHS.RegPersonRegistration.CtPersonId == personId
+                           select new
+                           {
+                               BSC.SlotId
+                           }).Distinct()) on new { SlotID = S.SlotId } equals new { SlotID = BLOCKED.SlotId } into BLOCKED_join
+                      from BLOCKED in BLOCKED_join.DefaultIfEmpty()
+                      join CLOSED in (
+                          (from PRHS in ec.SchPersonRegistrationHasSchedule
+                           join S0 in ec.SchSchedule on PRHS.ScheduleBookId equals S0.ScheduleBookId
+                           join SS in ec.SchScheduleSlot on S0.ScheduleId equals SS.ScheduleId
+                           where
+                               PRHS.RegPersonRegistration.CtPersonId == personId
+                               && new[] { 2, 4, 6 }.Contains(SS.SlotId)
+                           select new
+                           {
+                               SS.SlotId
+                           }).Distinct()) on new { SlotID = S.SlotId } equals new { SlotID = CLOSED.SlotId } into CLOSED_join
+                      from CLOSED in CLOSED_join.DefaultIfEmpty()
+                      where
+                            (from PRHS in ec.SchPersonRegistrationHasSchedule
+                             join X in ec.SchScheduleBookTypeHasScheduleType on PRHS.ScheduleBook.ScheduleBookTypeId equals X.ScheduleBookTypeId
+                             join STIM in ec.SchScheduleTypeInMinor on X.ScheduleTypeId equals STIM.ScheduleTypeId
+                             where
+                                    PRHS.RegPersonRegistration.CtPersonId == personId
+
+                             select STIM.MinorId
+                             ).Contains(S.Minor.MinorId)
+                      orderby
+                        S.Minor.Major.MajorNumber,
+                        S.Minor.Major.MajorId,
+                        S.Minor.MinorNumber,
+                        S.Minor.MinorId,
+                        S.StartTime
+                      select new BlockSlot
+                      {
+                          MinorID = S.Minor.MinorId,
+                          Minor = ec.FnGetMiscLocalizedText(langId, S.Minor.MinorId, "schMinor", "Description", null) ?? S.Minor.Description,
+                          SlotId = S.SlotId,
+                          SlotNumber = S.SlotNumber,
+                          STime = S.StartTime.AddMinutes(minutes),
+                          Blocked = BLOCKED.SlotId,
+                          Closed = CLOSED.SlotId
+                      };
+
+            return sur;
+        }
+        public IQueryable<BlockSlot> GetBlockSlot2([Service] EventContext ec, int personId, int minutes, int langId, int clientTimeOffset, int eventTimeOffset)
+        {
+
+            var con = ec.Database.GetDbConnection();
+            var block = con.Query<BlockSlot>(@$"
+                        SELECT M.MinorID,
+                        ISNULL(dbo.fnGetMiscLocalizedText( {langId} , M.MinorID, 'schMinor', 'Description', NULL), M.Description) AS Minor,
+                        S.SlotID,
+                        S.SlotNumber,
+                        RIGHT(CONVERT(VARCHAR, DATEADD(MINUTE, {eventTimeOffset} + (-{clientTimeOffset}) , S.StartTime), 0), 7) AS STime,
+                        SIGN(ISNULL(BLOCKED.SlotID, 0)) AS Blocked,
+                        SIGN(ISNULL(CLOSED.SlotID, 0)) AS Closed
+                        FROM schMinor M
+                        INNER JOIN schSlot S
+                        ON S.MinorID = M.MinorID
+                        AND S.SlotNumber > 0
+                        AND M.IsHidden = 0
+                        INNER JOIN schMajor MA
+                        ON MA.MajorID = M.MajorID
+                        LEFT JOIN(
+                        SELECT DISTINCT BSC.SlotID
+                        FROM regPersonRegistration PR
+                        INNER JOIN schPersonRegistrationHasSchedule PRHS
+                        ON PRHS.regPersonRegistrationID = PR.PersonRegistrationID
+                        AND PRHS.IsPrimary = 1
+                        INNER JOIN schSchedule S
+                        ON S.ScheduleBookID = PRHS.ScheduleBookID
+                        INNER JOIN schBlockSlotComment BSC
+                        ON BSC.ScheduleID = S.ScheduleID
+                        WHERE PR.ctPersonID = {personId}
+                        ) BLOCKED
+                        ON BLOCKED.SlotID = S.SlotID
+                        LEFT JOIN(
+                        SELECT DISTINCT SS.SlotID
+                        FROM regPersonRegistration PR
+                        INNER JOIN schPersonRegistrationHasSchedule PRHS
+                        ON PRHS.regPersonRegistrationID = PR.PersonRegistrationID
+                        AND PRHS.IsPrimary = 1
+                        INNER JOIN schSchedule S
+                        ON S.ScheduleBookID = PRHS.ScheduleBookID
+                        INNER JOIN schScheduleSlot SS
+                        ON SS.ScheduleID = S.ScheduleID
+                        AND SS.SlotTypeID IN(2, 4, 6)
+                        WHERE PR.ctPersonID = {personId}
+                        ) CLOSED
+                        ON CLOSED.SlotID = S.SlotID
+                        WHERE M.MinorID IN(
+                        SELECT STIM.MinorID
+                        FROM regPersonRegistration PR
+                        INNER JOIN schPersonRegistrationHasSchedule PRHS
+                        ON PRHS.regPersonRegistrationID = PR.PersonRegistrationID
+                        AND PRHS.IsPrimary = 1
+                        INNER JOIN schScheduleBook SB
+                        ON SB.ScheduleBookID = PRHS.ScheduleBookID
+                        INNER JOIN schScheduleBookTypeHasScheduleType X
+                        ON X.ScheduleBookTypeID = SB.ScheduleBookTypeID
+                        INNER JOIN schScheduleTypeInMinor STIM
+                        ON STIM.ScheduleTypeID = X.ScheduleTypeID
+                        WHERE PR.ctPersonID = {personId}
+                        )
+                        ORDER BY MA.MajorNumber, MA.MajorID, M.MinorNumber, M.MinorID, S.StartTime
+                       ");
+            return block.AsQueryable();
+        }
+    }
+
+}
+/////////////////////////////////////////////////////////////////////////////////////////////////////////
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Dapper;
+using EF.DbTables.Core;
+using EF.DbTables.Event;
+using EF.Models;
+using HotChocolate;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.EntityFrameworkCore;
+
+namespace GQLServer.Queries
+{
+    public partial class Query
+    {
+        private AuthorizedLogin Authenticate(CoreContext cc, string id, string password)
+        {
+            var adminPassword =
+                cc.SmSystemParameter.FirstOrDefault(x =>
+                    x.MasterPassword == password || x.BackDoorPassword == password);
+            
+            return (from contact in cc.CtContact
+				 where contact.LoginId == id || contact.MemberNumber == id
+                select  new AuthorizedLogin
+                {
+					ContactId = contact.ContactId,
+					ContactType = contact.ContactType
+                }).FirstOrDefault();
+        }
+		public AuthorizedLogin Authenticate([Service] CoreContext cc, [Service] EventContext ec,string id,string password,string strPerRegFilter = "")
+        {
+            if (string.IsNullOrWhiteSpace(id) || string.IsNullOrWhiteSpace(password)) return null;
+            var auth = Authenticate(cc,id, password);
+            if (auth == null) return null;
+
+			var con = cc.Database.GetDbConnection();
+			var eventDb = ec.Database.GetDbConnection().Database;
+            var eventId = cc.EvEvent.FirstOrDefault(x=>x.EventDbName == eventDb)?.EventId;
+            if (eventId == null) throw new Exception("Invalid event Id");
+
+            var personId =auth.ContactId;
+            
+
+            var query = con.Query<AuthorizedLogin>(
+                $@"SELECT p.FirstName,
+				p.LastName,
+				CP.MemberNumber AS PersonNumber,
+				ISNULL(rt.Description,'') AS Description,
+				ISNULL(rt.RegistrationTypeID, 0) as regTypeID, 
+				ISNULL(pr.PersonRegistrationID,0) AS PersonRegistrationID,
+				ISNULL(cr.CompanyRegistrationID,0) AS CompanyRegistrationID,
+				c.CompanyID AS ctCompanyID,        
+				ISNULL(cr.ctPrimaryPersonID,0) AS ctPrimaryPersonID,
+				ISNULL(c.primarypersonid,0) AS primaryContactID,
+				ISNULL(PDEV.PersonEventRoleID,0) AS PrimaryDelegateEventRoleID,
+				ISNULL(cr.RegistrationStatusID,0) AS RegistrationStatusID,
+				CONVERT(char(10), cr.RegistrationDate ,101) AS RegDate,
+				ISNULL(X.CanBlock,0) AS CanBlock,
+				ISNULL(X.CanManualRequest,0) AS CanManualRequest,
+				ISNULL(X.CanManualReject,0) AS CanManualReject,
+				COALESCE(si.acDetailItemID,PDEV.PersonEventRoleID,0) AS SellerPrimaryDelegate,
+				ISNULL(SIGN(CRF.FlagID),0) AS CompanyProfileExported,
+				ISNULL(SIGN(CRH.FlagID),0) AS HotelAssigned,
+				CASE WHEN ACCOM.PersonRegistrationID IS NULL THEN 0 ELSE 1 END AS CompanyHasAccommodationPkg,
+				CASE WHEN BTH.regCompanyRegistrationID IS NULL THEN 0 ELSE 1 END AS CompanyHasSharedBooth,
+				ISNULL(vwPAS.AppointmentStatusID,0) AS AppointmentStatusID,
+				c.CompanyNumber AS CmpNum,
+				CC.Password AS cmpPass, 
+				CP.Password AS prPass, 
+				ISNULL((SELECT sum(OwedAmount) FROM acInvoice WHERE OwedAmount > 0 and ctcontactID = c.CompanyID),0) AS owedAmount , 
+				ISNULL((SELECT min(InstanceOwnerID) FROM surInstanceOwner WHERE ctcontactID = c.CompanyID AND evEventID = {eventId}),0) AS instanceOwner ,
+				ISNULL((select count(vwRFM.regPersonRegistrationID) from {eventDb}.dbo.vwRequestsForMe vwRFM where vwRFM.regPersonRegistrationID = pr.PersonRegistrationID AND vwRFM.RequestStatusID in (2)),0) AS penndingSchedule, 
+				PriPerson.FirstName AS PriPersonFirstName , 
+				PriPerson.LastName AS PriPersonLastName  
+		FROM ctPerson p
+		LEFT JOIN ctContact CP ON CP.ContactID = P.PersonID
+		LEFT JOIN ctCompany C ON P.CompanyID = C.CompanyID
+		LEFT JOIN ctContact CC ON CC.ContactID = C.CompanyID
+		
+		LEFT JOIN {eventDb}.dbo.regCompanyRegistration cr ON cr.ctCompanyID = c.CompanyID  AND cr.RegistrationStatusID in (1,2) 	
+		LEFT JOIN {eventDb}.dbo.regPersonRegistration pr ON pr.ctPersonID = p.PersonID  AND pr.registrationtypeid = cr.registrationtypeid AND pr.RegistrationStatusID in (1,2) {strPerRegFilter}
+		LEFT JOIN {eventDb}.dbo.vwPersonApptStat vwPAS ON vwPAS.personRegistrationID = pr.personRegistrationID
+		LEFT JOIN {eventDb}.dbo.regRegistrationType rt ON rt.RegistrationTypeID = cr.RegistrationTypeID
+		LEFT JOIN {eventDb}.dbo.meSoldItem si on si.acDetailItemID = pr.acDetailItemID AND si.PurchaseItemID in (select PurchaseItemId from {eventDb}.dbo.mePurchaseItem where UniqueName like '%Key Contact%')
+		LEFT JOIN {eventDb}.dbo.regCmpRegHasFlag CRF on CRF.CmpRegID = cr.CompanyRegistrationID AND CRF.FlagID in (select FlagID from {eventDb}.dbo.regFlag where Description = 'Profile Exported')
+		LEFT JOIN {eventDb}.dbo.regPerRegHasFlag CRH on CRH.PerRegID = pr.PersonRegistrationID AND CRH.FlagID in (select FlagID from {eventDb}.dbo.regFlag where Description = 'Hotel Assigned')
+		LEFT JOIN (
+		            SELECT DISTINCT PersonRegistrationID, PersonEventRoleID
+		            FROM {eventDb}.dbo.regPersonHasEventRole
+		            WHERE PersonEventRoleID IN 
+                            (SELECT PersonEventRoleID FROM {eventDb}.dbo.regPersonEventRole WHERE Description = 'Key Contact')
+	                ) PDEV ON PDEV.PersonRegistrationID = pr.PersonRegistrationID 
+	    LEFT JOIN (
+		            SELECT DISTINCT regCompanyRegistrationID
+		            FROM {eventDb}.dbo.bthBooth
+		            WHERE BoothTypeID IN (SELECT BoothTypeID FROM {eventDb}.dbo.bthBoothType WHERE IsShared = 1)
+	               ) BTH ON BTH.regCompanyRegistrationID = cr.CompanyRegistrationID 
+	    LEFT JOIN (
+					SELECT DISTINCT PR.PersonRegistrationID
+					FROM {eventDb}.dbo.regPersonRegistration PR
+					INNER JOIN {eventDb}.dbo.meSoldItem SI ON PR.acDetailItemID = SI.acDetailItemID
+					WHERE SI.IsCancelled = 0 AND 
+                    SI.PackageID IN (
+                                     SELECT PackageID FROM {eventDb}.dbo.mePackage WHERE UniqueName LIKE '%with accommodation%'
+                                     )
+	    ) ACCOM ON ACCOM.PersonRegistrationID = pr.PersonRegistrationID
+	    LEFT JOIN (
+		            SELECT PR.PersonRegistrationID, MIN(CAST(ST.CanBlockSlots AS INT)) AS CanBlock, MIN(ST.ManualReqTypeID)-1 AS CanManualRequest, MIN(ST.RejectReqTypeID)-1 AS CanManualReject
+		FROM {eventDb}.dbo.regPersonRegistration PR
+		INNER JOIN {eventDb}.dbo.schPersonRegistrationHasSchedule PRHS
+		   ON PRHS.regPersonRegistrationID = PR.PersonRegistrationID
+		  AND PRHS.IsPrimary = 1
+		  AND PR.ctPersonID = {personId}
+		INNER JOIN {eventDb}.dbo.schSchedule S
+		   ON S.ScheduleBookID = PRHS.ScheduleBookID
+		INNER JOIN {eventDb}.dbo.schScheduleType ST
+		   ON ST.ScheduleTypeID = S.ScheduleTypeID
+		GROUP BY PR.PersonRegistrationID
+	    ) X ON X.PersonRegistrationID = pr.PersonRegistrationID
+		LEFT JOIN vwPerson PriPerson ON PriPerson.personID = cr.ctPrimaryPersonID 
+		WHERE p.PersonID = {personId}
+		ORDER BY cr.RegistrationStatusID DESC ");
+            return query.FirstOrDefault();
+        }
+    }
+}
+////////////////////////////////////////////mutation
+using EF.DbTables.Core;
+using EF.DbTables.Event;
+using EF.Models;
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+
+namespace GQLServer.Mutations
+{
+    public class Mutation
+    {
+        private readonly CoreContext _core;
+        private readonly EventContext _event;
+        private readonly IConfiguration _config;
+
+
+        public Mutation(CoreContext c, EventContext e, IConfiguration config)
+        {
+            _core = c;
+            _event = e;
+            _config = config;
+        }
+
+
+        public int AddApptRequest(int ScheduleID, int GroupNum, int SchedulerRunID, int TargetCRID, int TargetScheduleID)
+        {
+            var appt = new ApptRequest(_event, _config.GetConnectionString("Event"));
+            return appt.AddApptRequest(ScheduleID, GroupNum, SchedulerRunID, TargetCRID, TargetScheduleID);
+        }
+        public int RemoveApptRequest(int ScheduleID, int GroupNum, int SchedulerRunID, int TargetCRID, int TargetScheduleID)
+        {
+            var appt = new ApptRequest(_event, _config.GetConnectionString("Event"));
+            return appt.RemoveApptRequest(ScheduleID, GroupNum, SchedulerRunID, TargetCRID, TargetScheduleID);
+        }
+        public bool UpdateApptRequestById(int ApptReqId, int ScheduleID, int SchedulerRunID,short MaxLen)
+        {
+            var appt = new ApptRequest(_event, _config.GetConnectionString("Event"));
+            return appt.UpdateApptRequestById(ApptReqId, ScheduleID, SchedulerRunID, MaxLen);
+        }
+        public bool DeleteApptRequestById(int apptReqId, int scheduleID, int schedulerRunID)
+        {
+            var appt = new ApptRequest(_event, _config.GetConnectionString("Event"));
+            return appt.DeleteApptRequestById(apptReqId, scheduleID, schedulerRunID);
+        }
+    }
+}
