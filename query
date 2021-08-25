@@ -1,0 +1,128 @@
+using Dapper;
+using EF.DbTables.Core;
+using EF.DbTables.Event;
+using EF.Models;
+using HotChocolate;
+using HotChocolate.Data;
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace GQLServer.Queries
+{
+    public partial class Query
+    {
+        private string getSearchQueryString(string corConn, string eventDbconn, int? registrationType)
+        {
+            var searchQueryString = "SELECT cRg.ctCompanyID AS CompanyId, ctComp.CompanyName, RegType.Description AS RegistrationType FROM "
+             + eventDbconn + ".dbo.regCompanyRegistration AS cRg JOIN "
+             + eventDbconn + ".dbo.regRegistrationType AS RegType ON RegType.RegistrationTypeID = cRg.RegistrationTypeID JOIN "
+             + corConn + ".dbo.ctCompany AS ctComp ON ctComp.CompanyId = cRg.ctCompanyID WHERE 1 = 1 ";
+
+            if (registrationType != null)
+            {
+                searchQueryString += " AND cRg.RegistrationTypeID = " + registrationType;
+            }
+            return searchQueryString;
+        }
+
+        private IEnumerable<Person> getAllSelectedCompaniesPersons(System.Data.IDbConnection cor, string corConn, string companiesIds, string firstName, string lastName)
+        {
+            var personQueryString = "  SELECT  p.PersonID, p.CompanyId, p.FirstName, p.LastName from "
+                + corConn + ".dbo.ctPerson AS p WHERE p.CompanyID IN (" + companiesIds + ") ";
+
+            if (firstName != null && firstName != " " && (lastName == null || lastName == " "))
+            {
+                personQueryString += " AND p.FirstName LIKE '" + firstName + "%' OR p.FirstName LIKE '%" + firstName + "%'";
+            }
+            if (lastName != null && lastName != " " && (firstName == null || firstName == " "))
+            {
+                personQueryString += " AND p.LastName LIKE '" + lastName + "%' OR p.LastName LIKE '%" + lastName + "%'";
+            }
+            if (lastName != null && lastName != " " && firstName != null && firstName != " ")
+            {
+                personQueryString += " AND p.FirstName  LIKE '" + firstName + "%' OR p.FirstName LIKE '%" + firstName + "%' AND p.LastName LIKE '"
+                                  + lastName + "%' OR p.LastName LIKE '%" + lastName + "%'";
+            }
+            return cor.Query<Person>(personQueryString);
+        }
+
+        private IEnumerable<Flag> getAllSelectedCompaniesFlags(System.Data.IDbConnection cor, string companiesIds)
+        {
+            return cor.Query<Flag>(
+                   $@"SELECT flag.Description,
+                                 flag.FlagID,
+                                con.ContactID
+                       FROM ctContact AS con
+                       JOIN ctContactHasFlag AS ctConHasFlag ON ctConHasFlag.ContactID = con.ContactID
+                       JOIN ctFlag AS flag ON ctConHasFlag.FlagID = flag.FlagID
+                       WHERE con.ContactID IN ({companiesIds})"
+                   );
+        }
+        private List<CompanySearch> getFilterdCompanyList(System.Data.IDbConnection cor, IEnumerable<CompanySearch> query, string corConn, string companiesIds, string firstName, string lastName)
+        {
+            List<CompanySearch> filterdCompaniesList = new List<CompanySearch>();
+            var allSelectedCompaniesFlags = getAllSelectedCompaniesFlags(cor, companiesIds);
+            if ((lastName != null && lastName != " ") || (firstName != null && firstName != " "))
+            {
+                var companiesPersons = getAllSelectedCompaniesPersons(cor, corConn, companiesIds, firstName, lastName);
+                foreach (var person in companiesPersons)
+                {
+                    foreach (var company in query)
+                    {
+                        if (person.CompanyId == company.CompanyId)
+                        {
+                            filterdCompaniesList.Add(company);
+                        }
+                    }
+                }
+            }
+            else
+            {
+                filterdCompaniesList = query.ToList();
+            }
+            //---- merge flags with companies -- //
+            foreach (var company in filterdCompaniesList)
+            {
+                List<Flag> companyFlags = new List<Flag>();
+                foreach (var flag in allSelectedCompaniesFlags)
+                {
+                    if (company.CompanyId == flag.ContactID)
+                    {
+                        companyFlags.Add(flag);
+                    }
+                }
+                company.Flags = companyFlags;
+            }
+            return filterdCompaniesList.ToList();
+        }
+
+        [UseFiltering]
+        public List<CompanySearch> CompanySearch([Service] CoreContext cc, [Service] EventContext ec, int? registrationType, string firstName = null, string lastName = null)
+        {
+            var corConn = cc.Database.GetDbConnection().Database;
+            var eventDbconn = ec.Database.GetDbConnection().Database;
+            var cor = cc.Database.GetDbConnection();
+            var eventDb = ec.Database.GetDbConnection();
+            List<CompanySearch> finalQuery = new List<CompanySearch>();
+            var searchQueryString = getSearchQueryString(corConn, eventDbconn, registrationType);
+            var query = eventDb.Query<CompanySearch>(searchQueryString);
+            StringBuilder companyIdStringBuilder = new StringBuilder();
+            if (query.ToList().Count > 0)
+            {
+                var allCompanyIdList = query.Select(x => x.CompanyId).ToList();
+                foreach (var item in allCompanyIdList)
+                {
+                    companyIdStringBuilder.Append(item.ToString() + ",");
+                }
+                string companiesIds = companyIdStringBuilder.ToString();
+                companiesIds = companiesIds.Substring(0, companiesIds.Length - 1);
+                finalQuery = getFilterdCompanyList(cor, query, corConn, companiesIds, firstName, lastName);
+            }
+            return finalQuery;
+        }
+    }
+}
